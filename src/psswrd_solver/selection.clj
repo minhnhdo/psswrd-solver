@@ -1,6 +1,23 @@
 (ns psswrd-solver.selection
   (:require [psswrd-solver.solutions :as solutions]))
 
+(defn last-false-index-of
+  ([^booleans array]
+   (last-false-index-of array (alength array)))
+  ([^booleans array ^Integer upto-excluding]
+   (loop [idx (- upto-excluding 1)]
+     (cond
+       (< idx 0) nil
+       (= false (aget array idx)) idx
+       :else (recur (- idx 1))))))
+
+(defn first-false-index-of [^booleans array]
+  (loop [idx 0]
+     (cond
+       (= idx (alength array)) nil
+       (= false (aget array idx)) idx
+       :else (recur (+ idx 1)))))
+
 ;; NOT thread-safe
 (defrecord Selection [^String alphabet ^Integer code-length ^booleans state]
   solutions/Solution
@@ -9,7 +26,39 @@
                     (map vector state)
                     (filter first)
                     (map second))))
-  (next [this] nil))
+  (next [this]
+    (let [first-false-index (first-false-index-of state)
+          last-false-index (last-false-index-of state)]
+      (if (and (= last-false-index (- (alength state) 1))
+               (= first-false-index code-length))
+        ;; [true, true, ..., true, false, false, ..., false]
+        ;; no more valid code
+        nil
+        (let [selected-false-index (if (= last-false-index (- (alength state) 1))
+                                     (loop [selected (last-false-index-of state last-false-index)
+                                            prev last-false-index]
+                                       (if (>= selected (- prev 1))
+                                         (recur (last-false-index-of state selected)
+                                                selected)
+                                         selected))
+                                     last-false-index)]
+          (aset state selected-false-index true)
+          (aset state (+ selected-false-index 1) false)
+          (let [nfalse (loop [i (+ 1 selected-false-index)
+                              c 0]
+                         (cond
+                           (= i (alength state)) c
+                           (= false (aget state i)) (recur (+ i 1) (+ c 1))
+                           :else (recur (+ i 1) c)))]
+            (java.util.Arrays/fill state
+                                   (+ selected-false-index 1)
+                                   (+ selected-false-index nfalse 1)
+                                   false)
+            (java.util.Arrays/fill state
+                                   (+ selected-false-index nfalse 1)
+                                   (alength state)
+                                   true)
+            this))))))
 
 (defrecord SelectionAllButOne [^String alphabet ^Integer index]
   solutions/Solution
