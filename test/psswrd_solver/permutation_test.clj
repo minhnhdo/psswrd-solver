@@ -16,13 +16,13 @@
   (is (= (fact 4) (count-solutions (make (.substring alphabet 0 4))))))
 
 (deftest alphabet-size-5-permutation-count
-  (is (= (fact 5) (count-solutions (make (.substring alphabet 0 4))))))
+  (is (= (fact 5) (count-solutions (make (.substring alphabet 0 5))))))
 
 (deftest alphabet-size-6-permutation-count
-  (is (= (fact 6) (count-solutions (make (.substring alphabet 0 4))))))
+  (is (= (fact 6) (count-solutions (make (.substring alphabet 0 6))))))
 
 (deftest alphabet-size-7-permutation-count
-  (is (= (fact 7) (count-solutions (make (.substring alphabet 0 4))))))
+  (is (= (fact 7) (count-solutions (make (.substring alphabet 0 7))))))
 
 (deftest alphabet-size-8-permutation-count
-  (is (= (fact 8) (count-solutions (make (.substring alphabet 0 4))))))
+  (is (= (fact 8) (count-solutions (make (.substring alphabet 0 8))))))
