@@ -1,11 +1,9 @@
 (ns psswrd-solver.selection-test
   (:require [clojure.test :refer :all]
             [psswrd-solver.selection :refer :all]
-            [psswrd-solver.solutions :as solutions])
+            [psswrd-solver.test-helpers :refer :all])
   (:import [psswrd_solver.selection SelectionOne SelectionAllButOne SelectionAll
             Selection]))
-
-(def alphabet "0123456789abcdefghijklmnopqrstuvwxyz")
 
 (deftest selection-make-one
   (is (instance? SelectionOne (make alphabet 1))))
@@ -18,13 +16,6 @@
 
 (deftest selection-make-general
   (is (instance? Selection (make alphabet 2))))
-
-(defn count-solutions [solver]
-  (loop [s solver
-         acc 0]
-    (if (nil? s)
-      acc
-      (recur (solutions/next s) (+ acc 1)))))
 
 (deftest single-selection-count
   (is (= 36 (count-solutions (make alphabet 1)))))
