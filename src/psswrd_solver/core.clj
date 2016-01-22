@@ -28,6 +28,31 @@
   (taxi/input-text "input.input_text" guess)
   (taxi/submit "input.buttonSmall"))
 
+(defn segment [characters code-length]
+  (let [length (.length characters)
+        times (quot length code-length)
+        incomplete-spec (loop [i 0
+                               acc []]
+                          (if (= i times)
+                            acc
+                            (let [guess (.substring characters
+                                                    (* i code-length)
+                                                    (* (inc i) code-length))]
+
+                              (submit-guess guess)
+                              (recur (inc i) (conj acc [guess (parse-latest-hint)])))))
+        remaining-count (- code-length (apply +
+                                              (map #(+ (:number-of-gold (second %))
+                                                       (:number-of-silver (second %)))
+                                                   incomplete-spec)))]
+    (if (zero? remaining-count)
+      incomplete-spec
+      (let [remaining-characters (.substring characters (* times code-length))]
+        (conj incomplete-spec [remaining-characters
+                               {:guess remaining-characters
+                                :number-of-gold 0
+                                :number-of-silver remaining-count}])))))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
@@ -46,7 +71,6 @@
         characters (->> (.lastIndexOf problem-statement (int \space))
                         inc
                         (.substring problem-statement))]
-    (println code-length characters))
-  (submit-guess "0123")
-  (println (parse-latest-hint))
+    (println characters code-length)
+    (println (segment characters code-length)))
   (taxi/quit))
