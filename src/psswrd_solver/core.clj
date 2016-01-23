@@ -169,34 +169,6 @@
                          new-spec
                          (make-solver new-spec)
                          latest-hint))
-                (and (= (.length (different-characters (:guess last-hint)
-                                                       (:guess latest-hint)))
-                        (- (+ (:number-of-gold last-hint)
-                              (:number-of-silver last-hint))
-                           guess-count))
-                     (not (zero? (- (+ (:number-of-gold last-hint)
-                                       (:number-of-silver last-hint))
-                                    guess-count))))
-                (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (different-characters (:guess last-hint) (:guess latest-hint)))]
-                  (recur new-impossible-characters
-                         (conj filters (make-filter latest-hint))
-                         new-spec
-                         (make-solver new-spec)
-                         latest-hint))
-                (and (= (.length (different-characters (:guess latest-hint)
-                                                       (:guess last-hint)))
-                        (- guess-count
-                           (+ (:number-of-gold last-hint)
-                              (:number-of-silver last-hint))))
-                     (not (zero? (- guess-count
-                                    (+ (:number-of-gold last-hint)
-                                       (:number-of-silver last-hint))))))
-                (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (different-characters (:guess latest-hint) (:guess last-hint)))]
-                  (recur new-impossible-characters
-                         (conj filters (make-filter latest-hint))
-                         new-spec
-                         (make-solver new-spec)
-                         latest-hint))
                 :else (recur impossible-characters
                              (conj filters (make-filter latest-hint))
                              current-spec
