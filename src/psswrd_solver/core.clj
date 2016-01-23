@@ -153,17 +153,22 @@
                                              new-spec
                                              (make-solver new-spec)
                                              latest-hint))
-                (>= guess-count (- code-length 2)) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters
-                                                                                                                                  [latest-hint {:guess (remove-impossible-characters characters
-                                                                                                                                                                                     (into #{} (:guess latest-hint)))
-                                                                                                                                                :number-of-gold 0
-                                                                                                                                                :number-of-silver (- code-length guess-count)}]
-                                                                                                                                  "")]
-                                                     (recur new-impossible-characters
-                                                            (conj filters (make-filter latest-hint))
-                                                            new-spec
-                                                            (make-solver new-spec)
-                                                            latest-hint))
+                (and (>= guess-count (- code-length 2))
+                     (> guess-count
+                        (+ (:number-of-gold (first current-spec))
+                           (:number-of-silver (first current-spec)))))
+                (let [[new-impossible-characters new-spec]
+                      (new-impossible-characters-and-spec impossible-characters
+                                                          [latest-hint {:guess (remove-impossible-characters characters
+                                                                                                             (into #{} (:guess latest-hint)))
+                                                                        :number-of-gold 0
+                                                                        :number-of-silver (- code-length guess-count)}]
+                                                          "")]
+                  (recur new-impossible-characters
+                         (conj filters (make-filter latest-hint))
+                         new-spec
+                         (make-solver new-spec)
+                         latest-hint))
                 (and (= (.length (different-characters (:guess last-hint)
                                                        (:guess latest-hint)))
                         (- (+ (:number-of-gold last-hint)
