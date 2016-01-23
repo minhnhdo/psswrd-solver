@@ -100,9 +100,10 @@
                                  " with code length " code-length
                                  " and alphabet '" characters "'"))
                    (sweep characters code-length))]
-      (loop [current-spec spec
+      (loop [impossible-characters #{}
              filters (map make-filter
                           (filter #(= code-length (.length (:guess %))) spec))
+             current-spec spec
              solver (make-solver spec)]
         (let [combined-filters (apply every-pred filters)
               current-solver (loop [current-solver solver]
@@ -114,9 +115,28 @@
           (if (and (not (nil? (taxi/element "form > h1 > span")))
                    (= "Correct!" (taxi/text "form > h1 > span")))
             (taxi/submit "input.button[value=\"NEXT LEVEL\"]")
-            (let [latest-hint (parse-latest-hint)]
-              (recur current-spec
-                     (conj filters (make-filter latest-hint))
-                     current-solver))))))
+            (let [latest-hint (parse-latest-hint)
+                  guess-count (+ (:number-of-gold latest-hint)
+                                 (:number-of-silver latest-hint))]
+              (cond
+                (zero? guess-count) (let [new-impossible-characters (into impossible-characters
+                                                                          (:guess latest-hint))
+                                          new-spec (->> current-spec
+                                                       (map #(assoc %
+                                                                    :guess
+                                                                    (apply str
+                                                                           (filter (fn [g] (not (new-impossible-characters g)))
+                                                                                   (:guess %)))))
+                                                       (filter #(not (zero? (+ (:number-of-gold %)
+                                                                               (:number-of-silver %)))))
+                                                       vec)]
+                                      (recur new-impossible-characters
+                                             filters
+                                             new-spec
+                                             (make-solver new-spec)))
+                :else (recur impossible-characters
+                             (conj filters (make-filter latest-hint))
+                             current-spec
+                             current-solver)))))))
     (recur))
   (taxi/quit))
