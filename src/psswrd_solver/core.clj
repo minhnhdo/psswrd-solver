@@ -138,6 +138,13 @@
                   guess-count (+ (:number-of-gold latest-hint)
                                  (:number-of-silver latest-hint))]
               (cond
+                (= code-length guess-count) (let [new-spec [latest-hint]]
+                                              (println (str "    matched all characters, changing spec to " new-spec))
+                                              (recur impossible-characters
+                                                     (conj filters (make-filter latest-hint))
+                                                     new-spec
+                                                     (make-solver new-spec)
+                                                     latest-hint))
                 (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (:guess latest-hint))]
                                       (recur new-impossible-characters
                                              filters
