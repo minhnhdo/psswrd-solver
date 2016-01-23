@@ -41,7 +41,3 @@
 (deftest code-size-2-selection-count
   (is (= 630 ;; 36C2
          (count-solutions (make alphabet 2)))))
-
-(deftest code-size-5-selection-count
-  (is (= 376992 ;; 36C5
-         (count-solutions (make alphabet 5)))))
