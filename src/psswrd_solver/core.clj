@@ -70,6 +70,24 @@
                                                                 (inc correct-digits))
           :else (recur (inc i) correct-places correct-digits))))))
 
+(defn different-characters [s1 s2]
+  (apply str (map #(if (> (.indexOf s1 (int %)) -1) nil %) s2)))
+
+(defn new-impossible-characters-and-spec
+  [impossible-characters current-spec new-characters]
+  (println (str "    adding '" new-characters "' to impossible characters"))
+  (let [new-impossible-characters (into impossible-characters new-characters)]
+    [new-impossible-characters
+     (->> current-spec
+          (map #(assoc %
+                       :guess
+                       (apply str
+                              (filter (fn [g] (not (new-impossible-characters g)))
+                                      (:guess %)))))
+          (filter #(not (zero? (+ (:number-of-gold %)
+                                  (:number-of-silver %)))))
+          vec)]))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
@@ -104,7 +122,8 @@
              filters (map make-filter
                           (filter #(= code-length (.length (:guess %))) spec))
              current-spec spec
-             solver (make-solver spec)]
+             solver (make-solver spec)
+             last-hint (last spec)]
         (let [combined-filters (apply every-pred filters)
               current-solver (loop [current-solver solver]
                                (cond
@@ -119,24 +138,48 @@
                   guess-count (+ (:number-of-gold latest-hint)
                                  (:number-of-silver latest-hint))]
               (cond
-                (zero? guess-count) (let [new-impossible-characters (into impossible-characters
-                                                                          (:guess latest-hint))
-                                          new-spec (->> current-spec
-                                                       (map #(assoc %
-                                                                    :guess
-                                                                    (apply str
-                                                                           (filter (fn [g] (not (new-impossible-characters g)))
-                                                                                   (:guess %)))))
-                                                       (filter #(not (zero? (+ (:number-of-gold %)
-                                                                               (:number-of-silver %)))))
-                                                       vec)]
+                (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (:guess latest-hint))]
                                       (recur new-impossible-characters
                                              filters
                                              new-spec
-                                             (make-solver new-spec)))
+                                             (make-solver new-spec)
+                                             latest-hint))
+                (and (= (.length (different-characters (:guess last-hint)
+                                                       (:guess latest-hint)))
+                        (- (+ (:number-of-gold last-hint)
+                              (:number-of-silver last-hint))
+                           (+ (:number-of-gold latest-hint)
+                              (:number-of-silver latest-hint))))
+                     (not (zero? (- (+ (:number-of-gold last-hint)
+                                       (:number-of-silver last-hint))
+                                    (+ (:number-of-gold latest-hint)
+                                       (:number-of-silver latest-hint))))))
+                (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (different-characters (:guess last-hint) (:guess latest-hint)))]
+                  (recur new-impossible-characters
+                         (conj filters (make-filter latest-hint))
+                         new-spec
+                         (make-solver new-spec)
+                         latest-hint))
+                (and (= (.length (different-characters (:guess latest-hint)
+                                                       (:guess last-hint)))
+                        (- (+ (:number-of-gold latest-hint)
+                              (:number-of-silver latest-hint))
+                           (+ (:number-of-gold last-hint)
+                              (:number-of-silver last-hint))))
+                     (not (zero? (- (+ (:number-of-gold latest-hint)
+                                       (:number-of-silver latest-hint))
+                                    (+ (:number-of-gold last-hint)
+                                       (:number-of-silver last-hint))))))
+                (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (different-characters (:guess latest-hint) (:guess last-hint)))]
+                  (recur new-impossible-characters
+                         (conj filters (make-filter latest-hint))
+                         new-spec
+                         (make-solver new-spec)
+                         latest-hint))
                 :else (recur impossible-characters
                              (conj filters (make-filter latest-hint))
                              current-spec
-                             current-solver)))))))
+                             current-solver
+                             latest-hint)))))))
     (recur))
   (taxi/quit))
