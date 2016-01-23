@@ -124,8 +124,7 @@
              filters (map make-filter
                           (filter #(= code-length (.length (:guess %))) spec))
              current-spec spec
-             solver (make-solver spec)
-             last-hint (last spec)]
+             solver (make-solver spec)]
         (let [combined-filters (apply every-pred filters)
               current-solver (loop [current-solver solver]
                                (cond
@@ -145,14 +144,12 @@
                                               (recur impossible-characters
                                                      (conj filters (make-filter latest-hint))
                                                      new-spec
-                                                     (make-solver new-spec)
-                                                     latest-hint))
+                                                     (make-solver new-spec)))
                 (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (:guess latest-hint))]
                                       (recur new-impossible-characters
                                              filters
                                              new-spec
-                                             (make-solver new-spec)
-                                             latest-hint))
+                                             (make-solver new-spec)))
                 (and (>= guess-count (- code-length 2))
                      (> guess-count
                         (+ (:number-of-gold (first current-spec))
@@ -167,12 +164,10 @@
                   (recur new-impossible-characters
                          (conj filters (make-filter latest-hint))
                          new-spec
-                         (make-solver new-spec)
-                         latest-hint))
+                         (make-solver new-spec)))
                 :else (recur impossible-characters
                              (conj filters (make-filter latest-hint))
                              current-spec
-                             current-solver
-                             latest-hint)))))))
+                             current-solver)))))))
     (recur))
   (taxi/quit))
