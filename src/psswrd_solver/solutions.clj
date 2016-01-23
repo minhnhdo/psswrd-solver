@@ -1,4 +1,5 @@
-(ns psswrd-solver.solutions)
+(ns psswrd-solver.solutions
+  (:refer-clojure :exclude [next]))
 
 (defprotocol Solution
   (current [this] "Returns current solution, nil if no valid solution can be found.")
