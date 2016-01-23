@@ -1,5 +1,7 @@
 (ns psswrd-solver.core
-  (:require [clj-webdriver.taxi :as taxi])
+  (:require [clj-webdriver.taxi :as taxi]
+            [psswrd-solver.solutions :as solutions]
+            [psswrd-solver.solver :refer [make] :rename {make make-solver}])
   (:gen-class))
 
 (defn parse-number-of-guesses-left []
@@ -25,6 +27,7 @@
      :number-of-silver number-of-silver}))
 
 (defn submit-guess [guess]
+  (println (str "submitting guess '" guess "'"))
   (taxi/input-text "input.input_text" guess)
   (taxi/submit "input.buttonSmall"))
 
@@ -48,20 +51,23 @@
                                    :number-of-silver remaining-count}))))
 
 (defn make-filter [{:keys [^String guess number-of-gold number-of-silver]}]
+  (println (str "making filter for guess '" guess
+                "' ngold=" number-of-gold
+                " nsilver=" number-of-silver))
   (fn [^String code]
     (loop [i 0
            correct-places 0
            correct-digits 0]
       (if (= i (.length code))
         (and (= correct-digits number-of-silver)
-             (= correct-digits number-of-gold))
+             (= correct-places number-of-gold))
         (cond
           (= (.charAt code i) (.charAt guess i)) (recur (inc i)
                                                         (inc correct-places)
                                                         correct-digits)
-          (> (.indexOf guess (.charAt code i)) -1) (recur (inc i)
-                                                          correct-places
-                                                          (inc correct-digits))
+          (> (.indexOf guess (int (.charAt code i))) -1) (recur (inc i)
+                                                                correct-places
+                                                                (inc correct-digits))
           :else (recur (inc i) correct-places correct-digits))))))
 
 (defn -main
@@ -71,19 +77,35 @@
   (taxi/to "http://walisu.com/psswrd")
   ;; let the game begin!
   (taxi/submit "input.button[value=\"START!\"]")
-  ;; parse level information
-  (let [problem-statement (taxi/text "body > div")
-        code-length (let [after-colon-index (+ 2 (.indexOf problem-statement (int \:)))]
-                      (Integer/parseInt
-                        (.substring problem-statement
-                                    after-colon-index
-                                    (.indexOf problem-statement
-                                              (int \space)
-                                              after-colon-index))
-                        10))
-        characters (->> (.lastIndexOf problem-statement (int \space))
-                        inc
-                        (.substring problem-statement))]
-    (println characters code-length)
-    (println (sweep characters code-length)))
+  (loop []
+    ;; parse level information
+    (let [problem-statement (taxi/text "body > div")
+          code-length (let [after-colon-index (+ 2 (.indexOf problem-statement (int \:)))]
+                        (Integer/parseInt
+                          (.substring problem-statement
+                                      after-colon-index
+                                      (.indexOf problem-statement
+                                                (int \space)
+                                                after-colon-index))
+                          10))
+          characters (->> (.lastIndexOf problem-statement (int \space))
+                          inc
+                          (.substring problem-statement))
+          ;; start solving it by first sweeping over the alphabet
+          spec (sweep characters code-length)]
+      (loop [filters (map make-filter
+                          (filter #(= code-length (.length (:guess %))) spec))
+             solver (make-solver spec)]
+        (let [combined-filters (apply every-pred filters)
+              current-solver (loop [current-solver solver]
+                               (cond
+                                 (nil? current-solver) nil
+                                 (combined-filters (solutions/current current-solver)) current-solver
+                                 :else (recur (solutions/next current-solver))))]
+          (submit-guess (solutions/current current-solver))
+          (if (and (not (nil? (taxi/element "form > h1 > span")))
+                   (= "Correct!" (taxi/text "form > h1 > span")))
+            (taxi/submit "input.button[value=\"NEXT LEVEL\"]")
+            (recur (conj filters (make-filter (parse-latest-hint))) current-solver)))))
+    (recur))
   (taxi/quit))
