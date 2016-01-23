@@ -28,37 +28,33 @@
   (taxi/input-text "input.input_text" guess)
   (taxi/submit "input.buttonSmall"))
 
-(defn segment [characters code-length]
+(defn sweep [characters code-length]
   (let [length (.length characters)
         times (quot length code-length)
-        incomplete-spec (loop [i 0
-                               acc []]
-                          (if (= i times)
-                            acc
-                            (let [guess (.substring characters
-                                                    (* i code-length)
-                                                    (* (inc i) code-length))]
+        incomplete-spec (for [i (range times)]
+                          (let [guess (.substring characters
+                                                  (* i code-length)
+                                                  (* (inc i) code-length))]
 
-                              (submit-guess guess)
-                              (recur (inc i) (conj acc [guess (parse-latest-hint)])))))
-        remaining-count (- code-length (apply +
-                                              (map #(+ (:number-of-gold (second %))
-                                                       (:number-of-silver (second %)))
-                                                   incomplete-spec)))]
-    (if (zero? remaining-count)
-      incomplete-spec
-      (let [remaining-characters (.substring characters (* times code-length))]
-        (conj incomplete-spec [remaining-characters
-                               {:guess remaining-characters
-                                :number-of-gold 0
-                                :number-of-silver remaining-count}])))))
+                            (submit-guess guess)
+                            (parse-latest-hint)))
+        remaining-count (- code-length (apply + (map #(+ (:number-of-gold %)
+                                                         (:number-of-silver %))
+                                                     incomplete-spec)))
+        remaining-characters (.substring characters (* times code-length))]
+    (filter #(not (zero? (+ (:number-of-gold %) (:number-of-silver %))))
+            (conj incomplete-spec {:guess remaining-characters
+                                   :number-of-gold 0
+                                   :number-of-silver remaining-count}))))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (taxi/set-driver! {:browser :firefox})
   (taxi/to "http://walisu.com/psswrd")
+  ;; let the game begin!
   (taxi/submit "input.button[value=\"START!\"]")
+  ;; parse level information
   (let [problem-statement (taxi/text "body > div")
         code-length (let [after-colon-index (+ 2 (.indexOf problem-statement (int \:)))]
                       (Integer/parseInt
@@ -72,5 +68,5 @@
                         inc
                         (.substring problem-statement))]
     (println characters code-length)
-    (println (segment characters code-length)))
+    (println (sweep characters code-length)))
   (taxi/quit))
