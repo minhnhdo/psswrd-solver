@@ -47,6 +47,23 @@
                                    :number-of-gold 0
                                    :number-of-silver remaining-count}))))
 
+(defn make-filter [{:keys [^String guess number-of-gold number-of-silver]}]
+  (fn [^String code]
+    (loop [i 0
+           correct-places 0
+           correct-digits 0]
+      (if (= i (.length code))
+        (and (= correct-digits number-of-silver)
+             (= correct-digits number-of-gold))
+        (cond
+          (= (.charAt code i) (.charAt guess i)) (recur (inc i)
+                                                        (inc correct-places)
+                                                        correct-digits)
+          (> (.indexOf guess (.charAt code i)) -1) (recur (inc i)
+                                                          correct-places
+                                                          (inc correct-digits))
+          :else (recur (inc i) correct-places correct-digits))))))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
