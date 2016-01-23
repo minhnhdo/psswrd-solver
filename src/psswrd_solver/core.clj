@@ -27,7 +27,7 @@
      :number-of-silver number-of-silver}))
 
 (defn submit-guess [guess]
-  (println (str "submitting guess '" guess "'"))
+  (println (str "    submitting guess '" guess "'"))
   (taxi/input-text "input.input_text" guess)
   (taxi/submit "input.buttonSmall"))
 
@@ -51,7 +51,7 @@
                                    :number-of-silver remaining-count}))))
 
 (defn make-filter [{:keys [^String guess number-of-gold number-of-silver]}]
-  (println (str "making filter for guess '" guess
+  (println (str "    making filter for guess '" guess
                 "' ngold=" number-of-gold
                 " nsilver=" number-of-silver))
   (fn [^String code]
@@ -80,6 +80,10 @@
   (loop []
     ;; parse level information
     (let [problem-statement (taxi/text "body > div")
+          level (Integer/parseInt (.substring problem-statement
+                                              (inc (.indexOf problem-statement (int \space)))
+                                              (.indexOf problem-statement (int \:)))
+                                  10)
           code-length (let [after-colon-index (+ 2 (.indexOf problem-statement (int \:)))]
                         (Integer/parseInt
                           (.substring problem-statement
@@ -92,8 +96,12 @@
                           inc
                           (.substring problem-statement))
           ;; start solving it by first sweeping over the alphabet
-          spec (sweep characters code-length)]
-      (loop [filters (map make-filter
+          spec (do (println (str "### Starting level " level
+                                 " with code length " code-length
+                                 " and alphabet '" characters "'"))
+                   (sweep characters code-length))]
+      (loop [current-spec spec
+             filters (map make-filter
                           (filter #(= code-length (.length (:guess %))) spec))
              solver (make-solver spec)]
         (let [combined-filters (apply every-pred filters)
@@ -106,6 +114,9 @@
           (if (and (not (nil? (taxi/element "form > h1 > span")))
                    (= "Correct!" (taxi/text "form > h1 > span")))
             (taxi/submit "input.button[value=\"NEXT LEVEL\"]")
-            (recur (conj filters (make-filter (parse-latest-hint))) current-solver)))))
+            (let [latest-hint (parse-latest-hint)]
+              (recur current-spec
+                     (conj filters (make-filter latest-hint))
+                     current-solver))))))
     (recur))
   (taxi/quit))
