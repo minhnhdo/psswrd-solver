@@ -1,7 +1,11 @@
 (ns psswrd-solver.core
   (:require [clj-webdriver.taxi :as taxi]
             [psswrd-solver.solutions :as solutions]
-            [psswrd-solver.solver :refer [make] :rename {make make-solver}])
+            [psswrd-solver.solver :refer [make] :rename {make make-solver}]
+            [psswrd-solver.concatenation
+             :refer [make] :rename {make make-concatenation}]
+            [psswrd-solver.permutation
+             :refer [make] :rename {make make-permutation}])
   (:gen-class))
 
 (defn parse-number-of-guesses-left []
@@ -49,6 +53,14 @@
             (conj incomplete-spec {:guess remaining-characters
                                    :number-of-gold 0
                                    :number-of-silver remaining-count}))))
+
+(defn make-loose-filter [{:keys [^String guess number-of-gold number-of-silver]}]
+  (let [required-correct-digits (+ number-of-silver number-of-gold)]
+    (println (str "    making loose filter for guess '" guess
+                  "' required correct digits = " required-correct-digits))
+    (fn [^String code]
+      (= required-correct-digits
+         (apply + (map #(if (> (.indexOf guess (int %)) -1) 1 0) code))))))
 
 (defn make-filter [{:keys [^String guess number-of-gold number-of-silver]}]
   (println (str "    making filter for guess '" guess
@@ -121,10 +133,10 @@
                                  " and alphabet '" characters "'"))
                    (sweep characters code-length))]
       (loop [impossible-characters #{}
-             filters (map make-filter
+             filters (map make-loose-filter
                           (filter #(= code-length (.length (:guess %))) spec))
              current-spec spec
-             solver (make-solver spec)]
+             solver (make-concatenation spec)]
         (let [combined-filters (apply every-pred filters)
               current-solver (loop [current-solver solver]
                                (cond
@@ -144,12 +156,12 @@
                                               (recur impossible-characters
                                                      (conj filters (make-filter latest-hint))
                                                      new-spec
-                                                     (make-solver new-spec)))
+                                                     (make-permutation (:guess (first new-spec)))))
                 (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters spec (:guess latest-hint))]
                                       (recur new-impossible-characters
                                              filters
                                              new-spec
-                                             (make-solver new-spec)))
+                                             (make-concatenation new-spec)))
                 (and (>= guess-count (- code-length 2))
                      (> guess-count
                         (+ (:number-of-gold (first current-spec))
@@ -162,11 +174,11 @@
                                                                         :number-of-silver (- code-length guess-count)}]
                                                           "")]
                   (recur new-impossible-characters
-                         (conj filters (make-filter latest-hint))
+                         (conj filters (make-loose-filter latest-hint))
                          new-spec
-                         (make-solver new-spec)))
+                         (make-concatenation new-spec)))
                 :else (recur impossible-characters
-                             (conj filters (make-filter latest-hint))
+                             (conj filters (make-loose-filter latest-hint))
                              current-spec
                              current-solver)))))))
     (recur))
