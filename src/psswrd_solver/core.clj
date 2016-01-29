@@ -54,32 +54,28 @@
                                    :number-of-gold 0
                                    :number-of-silver remaining-count}))))
 
-(defn make-loose-filter [{:keys [^String guess number-of-gold number-of-silver]}]
-  (let [required-correct-digits (+ number-of-silver number-of-gold)]
-    (println (str "    making loose filter for guess '" guess
-                  "' required correct digits = " required-correct-digits))
-    (fn [^String code]
-      (= required-correct-digits
-         (apply + (map #(if (> (.indexOf guess (int %)) -1) 1 0) code))))))
+(defn run-filter [filters ^String code]
+  (let [check (fn [{:keys [^String guess number-of-gold number-of-silver]}]
+                (loop [i 0
+                       correct-places 0
+                       correct-digits 0]
+                  (cond
+                    (= i (.length code)) (and (= correct-digits number-of-silver)
+                                              (= correct-places number-of-gold))
+                    (= (.charAt code i) (.charAt guess i)) (recur (inc i)
+                                                                  (inc correct-places)
+                                                                  correct-digits)
+                    (> (.indexOf guess (int (.charAt code i))) -1) (recur (inc i)
+                                                                          correct-places
+                                                                          (inc correct-digits))
+                    :else (recur (inc i) correct-places correct-digits))))]
+    (every? check filters)))
 
-(defn make-filter [{:keys [^String guess number-of-gold number-of-silver]}]
-  (println (str "    making filter for guess '" guess
-                "' ngold=" number-of-gold
-                " nsilver=" number-of-silver))
-  (fn [^String code]
-    (loop [i 0
-           correct-places 0
-           correct-digits 0]
-      (cond
-        (= i (.length code)) (and (= correct-digits number-of-silver)
-                                  (= correct-places number-of-gold))
-        (= (.charAt code i) (.charAt guess i)) (recur (inc i)
-                                                      (inc correct-places)
-                                                      correct-digits)
-        (> (.indexOf guess (int (.charAt code i))) -1) (recur (inc i)
-                                                              correct-places
-                                                              (inc correct-digits))
-        :else (recur (inc i) correct-places correct-digits)))))
+(defn run-loose-filter [filters ^String code]
+  (let [check (fn [{:keys [^String guess number-of-gold number-of-silver]}]
+                (= (+ number-of-silver number-of-gold)
+                   (apply + (map #(if (> (.indexOf guess (int %)) -1) 1 0) code))))]
+    (every? check filters)))
 
 (defn different-characters [s1 s2]
   (apply str (map #(if (> (.indexOf s1 (int %)) -1) nil %) s2)))
@@ -147,11 +143,10 @@
                      (sweep characters code-length))]
         (if (< level 5)
           (loop [impossible-characters #{}
-                 filters (map make-filter
-                              (filter #(= code-length (.length (:guess %))) spec))
+                 filters (filter #(= code-length (.length (:guess %))) spec)
                  current-spec spec
                  solver (make-solver spec)]
-            (let [current-solver (passable-solution solver (apply every-pred filters))]
+            (let [current-solver (passable-solution solver #(run-filter filters %))]
               (when-not (submit-and-check (solutions/current current-solver))
                 (let [latest-hint (parse-latest-hint)
                       guess-count (+ (:number-of-gold latest-hint)
@@ -160,7 +155,7 @@
                     (= code-length guess-count) (let [new-spec [latest-hint]]
                                                   (println (str "    matched all characters, changing spec to " new-spec))
                                                   (recur impossible-characters
-                                                         (conj filters (make-filter latest-hint))
+                                                         (conj filters latest-hint)
                                                          new-spec
                                                          (make-permutation (:guess (first new-spec)))))
                     (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters current-spec (:guess latest-hint))]
@@ -180,28 +175,19 @@
                                                                             :number-of-silver (- code-length guess-count)}]
                                                               "")]
                       (recur new-impossible-characters
-                             (conj filters (make-filter latest-hint))
+                             (conj filters latest-hint)
                              new-spec
                              (make-solver new-spec)))
                     :else (recur impossible-characters
-                                 (conj filters (make-filter latest-hint))
+                                 (conj filters latest-hint)
                                  current-spec
                                  current-solver))))))
           (loop [impossible-characters #{}
-                 loose-filters (map make-loose-filter
-                                    (filter #(= code-length (.length (:guess %))) spec))
-                 filters (map make-filter
-                              (filter #(= code-length (.length (:guess %))) spec))
+                 run-f run-loose-filter
+                 filters (filter #(= code-length (.length (:guess %))) spec)
                  current-spec spec
                  solver (make-concatenation spec)]
-            (let [combined-filters (if (zero? (count loose-filters))
-                                     (apply every-pred filters)
-                                     (apply every-pred loose-filters))
-                  current-solver (loop [current-solver solver]
-                                   (cond
-                                     (nil? current-solver) nil
-                                     (combined-filters (solutions/current current-solver)) current-solver
-                                     :else (recur (solutions/next current-solver))))]
+            (let [current-solver (passable-solution solver #(run-f filters %))]
               (when-not (submit-and-check (solutions/current current-solver))
                 (let [latest-hint (parse-latest-hint)
                       guess-count (+ (:number-of-gold latest-hint)
@@ -211,18 +197,18 @@
                          (not= 1 (count current-spec))) (let [new-spec [latest-hint]]
                                                           (println (str "    matched all characters, changing spec to " new-spec))
                                                           (recur impossible-characters
-                                                                 []
-                                                                 (conj filters (make-filter latest-hint))
+                                                                 run-filter
+                                                                 (conj filters latest-hint)
                                                                  new-spec
                                                                  (make-permutation (:guess (first new-spec)))))
                     (= code-length guess-count) (recur impossible-characters
-                                                       []
-                                                       (conj filters (make-filter latest-hint))
+                                                       run-filter
+                                                       (conj filters latest-hint)
                                                        current-spec
                                                        current-solver)
                     (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters current-spec (:guess latest-hint))]
                                           (recur new-impossible-characters
-                                                 loose-filters
+                                                 run-loose-filter
                                                  filters
                                                  new-spec
                                                  (make-concatenation new-spec)))
@@ -238,13 +224,13 @@
                                                                             :number-of-silver (- code-length guess-count)}]
                                                               "")]
                       (recur new-impossible-characters
-                             (conj loose-filters (make-loose-filter latest-hint))
-                             (conj filters (make-filter latest-hint))
+                             run-loose-filter
+                             (conj filters latest-hint)
                              new-spec
                              (make-concatenation new-spec)))
                     :else (recur impossible-characters
-                                 (conj loose-filters (make-loose-filter latest-hint))
-                                 (conj filters (make-filter latest-hint))
+                                 run-loose-filter
+                                 (conj filters latest-hint)
                                  current-spec
                                  current-solver)))))))
         (= level 26))
