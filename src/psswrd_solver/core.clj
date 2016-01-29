@@ -145,7 +145,7 @@
                                    " with code length " code-length
                                    " and alphabet '" characters "'"))
                      (sweep characters code-length))]
-        (if (< level 3)
+        (if (< level 5)
           (loop [impossible-characters #{}
                  filters (map make-filter
                               (filter #(= code-length (.length (:guess %))) spec))
