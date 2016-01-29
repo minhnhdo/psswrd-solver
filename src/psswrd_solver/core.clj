@@ -141,98 +141,65 @@
                                    " with code length " code-length
                                    " and alphabet '" characters "'"))
                      (sweep characters code-length))]
-        (if (< level 5)
-          (loop [impossible-characters #{}
-                 filters (filter #(= code-length (.length (:guess %))) spec)
-                 current-spec spec
-                 solver (make-solver spec)]
-            (let [current-solver (passable-solution solver #(run-filter filters %))]
-              (when-not (submit-and-check (solutions/current current-solver))
-                (let [latest-hint (parse-latest-hint)
-                      guess-count (+ (:number-of-gold latest-hint)
-                                     (:number-of-silver latest-hint))]
-                  (cond
-                    (= code-length guess-count) (let [new-spec [latest-hint]]
-                                                  (println (str "    matched all characters, changing spec to " new-spec))
-                                                  (recur impossible-characters
-                                                         (conj filters latest-hint)
-                                                         new-spec
-                                                         (make-permutation (:guess (first new-spec)))))
-                    (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters current-spec (:guess latest-hint))]
-                                          (recur new-impossible-characters
-                                                 filters
-                                                 new-spec
-                                                 (make-solver new-spec)))
-                    (and (>= guess-count (- code-length 2))
-                         (> guess-count
-                            (+ (:number-of-gold (first current-spec))
-                               (:number-of-silver (first current-spec)))))
-                    (let [[new-impossible-characters new-spec]
-                          (new-impossible-characters-and-spec impossible-characters
-                                                              [latest-hint {:guess (remove-impossible-characters characters
-                                                                                                                 (into #{} (:guess latest-hint)))
-                                                                            :number-of-gold 0
-                                                                            :number-of-silver (- code-length guess-count)}]
-                                                              "")]
-                      (recur new-impossible-characters
-                             (conj filters latest-hint)
-                             new-spec
-                             (make-solver new-spec)))
-                    :else (recur impossible-characters
-                                 (conj filters latest-hint)
-                                 current-spec
-                                 current-solver))))))
-          (loop [impossible-characters #{}
-                 run-f run-loose-filter
-                 filters (filter #(= code-length (.length (:guess %))) spec)
-                 current-spec spec
-                 solver (make-concatenation spec)]
-            (let [current-solver (passable-solution solver #(run-f filters %))]
-              (when-not (submit-and-check (solutions/current current-solver))
-                (let [latest-hint (parse-latest-hint)
-                      guess-count (+ (:number-of-gold latest-hint)
-                                     (:number-of-silver latest-hint))]
-                  (cond
-                    (and (= code-length guess-count)
-                         (not= 1 (count current-spec))) (let [new-spec [latest-hint]]
-                                                          (println (str "    matched all characters, changing spec to " new-spec))
-                                                          (recur impossible-characters
-                                                                 run-filter
-                                                                 (conj filters latest-hint)
-                                                                 new-spec
-                                                                 (make-permutation (:guess (first new-spec)))))
-                    (= code-length guess-count) (recur impossible-characters
-                                                       run-filter
-                                                       (conj filters latest-hint)
-                                                       current-spec
-                                                       current-solver)
-                    (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters current-spec (:guess latest-hint))]
-                                          (recur new-impossible-characters
-                                                 run-loose-filter
-                                                 filters
-                                                 new-spec
-                                                 (make-concatenation new-spec)))
-                    (and (>= guess-count (- code-length 2))
-                         (> guess-count
-                            (+ (:number-of-gold (first current-spec))
-                               (:number-of-silver (first current-spec)))))
-                    (let [[new-impossible-characters new-spec]
-                          (new-impossible-characters-and-spec impossible-characters
-                                                              [latest-hint {:guess (remove-impossible-characters characters
-                                                                                                                 (into #{} (:guess latest-hint)))
-                                                                            :number-of-gold 0
-                                                                            :number-of-silver (- code-length guess-count)}]
-                                                              "")]
-                      (recur new-impossible-characters
-                             run-loose-filter
-                             (conj filters latest-hint)
-                             new-spec
-                             (make-concatenation new-spec)))
-                    :else (recur impossible-characters
-                                 run-loose-filter
-                                 (conj filters latest-hint)
-                                 current-spec
-                                 current-solver)))))))
+        (loop [impossible-characters #{}
+               run-f (if (< level 5)
+                       run-filter
+                       run-loose-filter)
+               filters (filter #(= code-length (.length (:guess %))) spec)
+               current-spec spec
+               solver (if (< level 5)
+                        (make-solver spec)
+                        (make-concatenation spec))]
+          (let [current-solver (passable-solution solver #(run-f filters %))]
+            (when-not (submit-and-check (solutions/current current-solver))
+              (let [latest-hint (parse-latest-hint)
+                    guess-count (+ (:number-of-gold latest-hint)
+                                   (:number-of-silver latest-hint))]
+                (cond
+                  (and (= code-length guess-count)
+                       (not= 1 (count current-spec))) (let [new-spec [latest-hint]]
+                                                        (println (str "    matched all characters, changing spec to " new-spec))
+                                                        (recur impossible-characters
+                                                               run-filter
+                                                               (conj filters latest-hint)
+                                                               new-spec
+                                                               (make-permutation (:guess (first new-spec)))))
+                  (= code-length guess-count) (recur impossible-characters
+                                                     run-f
+                                                     (conj filters latest-hint)
+                                                     current-spec
+                                                     current-solver)
+                  (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters current-spec (:guess latest-hint))]
+                                        (recur new-impossible-characters
+                                               run-f
+                                               filters
+                                               new-spec
+                                               (if (< level 5)
+                                                 (make-solver new-spec)
+                                                 (make-concatenation new-spec))))
+                  (and (>= guess-count (- code-length 2))
+                       (> guess-count
+                          (+ (:number-of-gold (first current-spec))
+                             (:number-of-silver (first current-spec)))))
+                  (let [[new-impossible-characters new-spec]
+                        (new-impossible-characters-and-spec impossible-characters
+                                                            [latest-hint {:guess (remove-impossible-characters characters
+                                                                                                               (into #{} (:guess latest-hint)))
+                                                                          :number-of-gold 0
+                                                                          :number-of-silver (- code-length guess-count)}]
+                                                            "")]
+                    (recur new-impossible-characters
+                           run-f
+                           (conj filters latest-hint)
+                           new-spec
+                           (if (< level 5)
+                             (make-solver new-spec)
+                             (make-concatenation new-spec))))
+                  :else (recur impossible-characters
+                               run-f
+                               (conj filters latest-hint)
+                               current-spec
+                               current-solver))))))
         (= level 26))
       (recur)))
   (println "!!!!! SUCCESS !!!!!")
