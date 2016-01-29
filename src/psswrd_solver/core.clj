@@ -188,11 +188,15 @@
                                  current-spec
                                  current-solver))))))
           (loop [impossible-characters #{}
-                 filters (map make-loose-filter
+                 loose-filters (map make-loose-filter
+                                    (filter #(= code-length (.length (:guess %))) spec))
+                 filters (map make-filter
                               (filter #(= code-length (.length (:guess %))) spec))
                  current-spec spec
                  solver (make-concatenation spec)]
-            (let [combined-filters (apply every-pred filters)
+            (let [combined-filters (if (zero? (count loose-filters))
+                                     (apply every-pred filters)
+                                     (apply every-pred loose-filters))
                   current-solver (loop [current-solver solver]
                                    (cond
                                      (nil? current-solver) nil
@@ -207,15 +211,18 @@
                          (not= 1 (count current-spec))) (let [new-spec [latest-hint]]
                                                           (println (str "    matched all characters, changing spec to " new-spec))
                                                           (recur impossible-characters
-                                                                 [(make-filter latest-hint)]
+                                                                 []
+                                                                 (conj filters (make-filter latest-hint))
                                                                  new-spec
                                                                  (make-permutation (:guess (first new-spec)))))
                     (= code-length guess-count) (recur impossible-characters
+                                                       []
                                                        (conj filters (make-filter latest-hint))
                                                        current-spec
                                                        current-solver)
                     (zero? guess-count) (let [[new-impossible-characters new-spec] (new-impossible-characters-and-spec impossible-characters current-spec (:guess latest-hint))]
                                           (recur new-impossible-characters
+                                                 loose-filters
                                                  filters
                                                  new-spec
                                                  (make-concatenation new-spec)))
@@ -231,11 +238,13 @@
                                                                             :number-of-silver (- code-length guess-count)}]
                                                               "")]
                       (recur new-impossible-characters
-                             (conj filters (make-loose-filter latest-hint))
+                             (conj loose-filters (make-loose-filter latest-hint))
+                             (conj filters (make-filter latest-hint))
                              new-spec
                              (make-concatenation new-spec)))
                     :else (recur impossible-characters
-                                 (conj filters (make-loose-filter latest-hint))
+                                 (conj loose-filters (make-loose-filter latest-hint))
+                                 (conj filters (make-filter latest-hint))
                                  current-spec
                                  current-solver)))))))
         (= level 26))
