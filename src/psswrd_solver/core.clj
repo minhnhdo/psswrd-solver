@@ -70,17 +70,16 @@
     (loop [i 0
            correct-places 0
            correct-digits 0]
-      (if (= i (.length code))
-        (and (= correct-digits number-of-silver)
-             (= correct-places number-of-gold))
-        (cond
-          (= (.charAt code i) (.charAt guess i)) (recur (inc i)
-                                                        (inc correct-places)
-                                                        correct-digits)
-          (> (.indexOf guess (int (.charAt code i))) -1) (recur (inc i)
-                                                                correct-places
-                                                                (inc correct-digits))
-          :else (recur (inc i) correct-places correct-digits))))))
+      (cond
+        (= i (.length code)) (and (= correct-digits number-of-silver)
+                                  (= correct-places number-of-gold))
+        (= (.charAt code i) (.charAt guess i)) (recur (inc i)
+                                                      (inc correct-places)
+                                                      correct-digits)
+        (> (.indexOf guess (int (.charAt code i))) -1) (recur (inc i)
+                                                              correct-places
+                                                              (inc correct-digits))
+        :else (recur (inc i) correct-places correct-digits)))))
 
 (defn different-characters [s1 s2]
   (apply str (map #(if (> (.indexOf s1 (int %)) -1) nil %) s2)))
